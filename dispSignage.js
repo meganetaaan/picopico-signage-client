@@ -84,6 +84,14 @@ function updatePng(png){
             for(i = 0; i < bmp.length; i++){
                 bmp[i] = ~bmp[i];
             }
+            if(bmp.length < 64){
+                bmp64 = new Buffer(64);
+                bmp.copy(bmp64, 0, 0, bmp.length);
+                for(i = bmp.length; i < 64; i++){
+                    bmp64[i] = 0;
+                }
+                bmp = bmp64;
+            }
             bitmap = bmp;
             cnt = 0;
             console.log('bitmap updated.');
@@ -160,7 +168,9 @@ function scrollStr(str){
 }
 
 function updateDesc(str){
-    updatePng(strToPng(str));
+    if(str){
+        updatePng(strToPng(str));
+    }
 }
 
 var INTERVAL_MSEC = 60;
