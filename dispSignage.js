@@ -1,11 +1,9 @@
 var Oled = require('oled-js');
-//var Promise = require('promise');
+var Promise = require('promise');
 
 var oled = new Oled({
         width: 64,
         height : 48});
-oled.clearDisplay();
-oled.dimDisplay(true);
 var pngtolcd = require('png-to-lcd');
 var sleep = require('sleep');
 
@@ -64,6 +62,37 @@ var strToPng = function (str) {
     return img;
 }
 
+var cnt = null;
+var bitmap = null;
+var buf = new Buffer(64);
+
+function updateDisplay(){
+    if(bitmap != null && cnt != null){
+    bitmap.copy(buf, 0, cnt, Math.min(bitmap.length, cnt + 64));
+    if(bitmap.length < cnt + 64){
+        bitmap.copy(buf, bitmap.length - cnt, 0, cnt % bitmap.length);
+    }
+    cnt = (cnt + 1) % bitmap.length;
+    oled.updatePage(5, buf);
+    }
+}
+
+function updatePng(png){
+    png.pack().pipe(fs.createWriteStream('tmp/out.png'))
+    .on('close', function(){
+        pngtolcd('tmp/out.png', false, function (err, bmp){
+            for(i = 0; i < bmp.length; i++){
+                bmp[i] = ~bmp[i];
+            }
+            bitmap = bmp;
+            cnt = 0;
+            console.log('bitmap updated.');
+            });
+    }).on('error', function(exception){
+        console.err(exception);
+    });
+}
+
 var scrollPng = function (png) {
     png.pack().pipe(fs.createWriteStream('tmp/out.png'))
     .on('close', function(){
@@ -72,7 +101,7 @@ var scrollPng = function (png) {
             for(i = 0; i < bitmap.length; i++){
                 bitmap[i] = ~bitmap[i];
             }
-            oled.update();
+            //oled.update();
             var buf = new Buffer(64);
             for(i = 0;;){
                 bitmap.copy(buf, 0, i, Math.min(bitmap.length, i + 64));
@@ -101,11 +130,6 @@ var scrollPng = function (png) {
 var fs = require('fs'),
 PNG = require('node-png').PNG;
 
-pngtolcd('hifive_mini.png', false, function (err, bitmap) {
-    oled.buffer = bitmap;
-    oled.update();
-});
-
 function readPng(path){
     return new Promise(function(resolve){
         fs.createReadStream(path)
@@ -117,13 +141,31 @@ function readPng(path){
 }
 
 var tasks = [
-    readPng('public/images/misaki8x8.png'),
-    readPng('public/images/misaki4x8.png')
+    readPng('images/misaki8x8.png'),
+    readPng('images/misaki4x8.png')
 ];
 
-var sourceStr = process.argv[2];
 Promise.all(tasks).then(function(results){
     png8x8 = results[0];
     png4x8 = results[1];
-    scrollPng(strToPng(sourceStr));
+    console.log('png resources ready.');
 });
+
+exports.scrollStr = scrollStr;
+exports.updateDesc = updateDesc;
+exports.loop = loop;
+
+function scrollStr(str){
+    scrollPng(strToPng(str));
+}
+
+function updateDesc(str){
+    updatePng(strToPng(str));
+}
+
+var INTERVAL_MSEC = 60;
+
+function loop(){
+	updateDisplay();
+	setTimeout(loop, INTERVAL_MSEC);
+}
