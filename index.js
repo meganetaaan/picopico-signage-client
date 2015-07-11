@@ -1,6 +1,8 @@
 //var util = require('socket.io');
 var client = require('socket.io-client');
-var socket = client.connect('http://192.168.0.8:3000');
+
+var appUrl = process.argv[2] || 'https://pico-pico-signage.herokuapp.com/';
+var socket = client.connect(appUrl);
 
 var Oled = require('oled-js');
 var oled = new Oled({
